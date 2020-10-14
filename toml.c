@@ -5,6 +5,8 @@
   Copyright (c) 2017 - 2019 CK Tan 
   https://github.com/cktan/tomlc99
   
+  Copyright (c) 2020 Intel Corporation
+
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
   in the Software without restriction, including without limitation the rights
@@ -31,7 +33,6 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdint.h>
-#include <ctype.h>
 #include <string.h>
 #include "toml.h"
 
@@ -52,6 +53,34 @@ void toml_set_memutil(void* (*xxmalloc)(size_t),
 	pprealloc = xxrealloc;
 }
 
+/* Below functions from ctype.h are adopted from Musl (standard MIT license):
+ *   Copyright © 2005-2014 Rich Felker, et al. */
+int ISLOWER(int c)
+{
+    return (unsigned)c - 'a' < 26;
+}
+
+int TOUPPER(int c)
+{
+    if (ISLOWER(c))
+        return c & 0x5f;
+    return c;
+}
+
+int ISALPHA(int c)
+{
+    return ((unsigned)c | 32) - 'a' < 26;
+}
+
+int ISDIGIT(int c)
+{
+    return (unsigned)c - '0' < 10;
+}
+
+int ISALNUM(int c)
+{
+    return ISALPHA(c) || ISDIGIT(c);
+}
 
 #define MALLOC(a)	  ppmalloc(a)
 #define FREE(a)		  ppfree(a)
@@ -618,7 +647,7 @@ static char* normalize_key(context_t* ctx, token_t strtok)
 	const char* xp;
 	for (xp = sp; xp != sq; xp++) {
 		int k = *xp;
-		if (isalnum(k)) continue;
+		if (ISALNUM(k)) continue;
 		if (k == '_' || k == '-') continue;
 		e_bad_key_error(ctx, lineno);
 		return 0;		/* not reached */
@@ -1545,7 +1574,7 @@ static tokentype_t ret_eof(context_t* ctx, int lineno)
 static int scan_digits(const char* p, int n)
 {
 	int ret = 0;
-	for ( ; n > 0 && isdigit(*p); n--, p++) {
+	for ( ; n > 0 && ISDIGIT(*p); n--, p++) {
 		ret = 10 * ret + (*p - '0');
 	}
 	return n ? -1 : ret;
@@ -1663,7 +1692,7 @@ static tokentype_t scan_string(context_t* ctx, char* p, int lineno, int dotisspe
 	/* check for timestamp without quotes */
 	if (0 == scan_date(p, 0, 0, 0) || 0 == scan_time(p, 0, 0, 0)) {
 		// forward thru the timestamp
-		for ( ; strchr("0123456789.:+-T Z", toupper(*p)); p++);
+		for ( ; strchr("0123456789.:+-T Z", TOUPPER(*p)); p++);
 		// squeeze out any spaces at end of string
 		for ( ; p[-1] == ' '; p--);
 		// tokenize
@@ -1914,14 +1943,14 @@ int toml_rtots(toml_raw_t src_, toml_timestamp_t* ret)
 			} else if (*p == '+' || *p == '-') {
 				*z++ = *p++;
 				
-				if (! (isdigit(p[0]) && isdigit(p[1]))) return -1;
+				if (! (ISDIGIT(p[0]) && ISDIGIT(p[1]))) return -1;
 				*z++ = *p++;
 				*z++ = *p++;
 				
 				if (*p == ':') {
 					*z++ = *p++;
 					
-					if (! (isdigit(p[0]) && isdigit(p[1]))) return -1;
+					if (! (ISDIGIT(p[0]) && ISDIGIT(p[1]))) return -1;
 					*z++ = *p++;
 					*z++ = *p++;
 				}
