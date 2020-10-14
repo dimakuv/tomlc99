@@ -82,6 +82,13 @@ int ISALNUM(int c)
     return ISALPHA(c) || ISDIGIT(c);
 }
 
+/* long int == long long int on targets with data model LP64 */
+#ifdef __LP64__
+#define STRTOLL strtol
+#else
+#define STRTOLL strtoll
+#endif
+
 #define MALLOC(a)	  ppmalloc(a)
 #define FREE(a)		  ppfree(a)
 #define CALLOC(a,b)	  ppcalloc(a,b)
@@ -2047,7 +2054,7 @@ int toml_rtoi(toml_raw_t src, int64_t* ret_)
 	/* Run strtoll on buf to get the integer */
 	char* endp;
 	errno = 0;
-	*ret = strtoll(buf, &endp, base);
+	*ret = STRTOLL(buf, &endp, base);
 	return (errno || *endp) ? -1 : 0;
 }
 
